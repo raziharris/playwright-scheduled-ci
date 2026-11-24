@@ -30,6 +30,41 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
 
+      - name: Write Job Summary
+        if: ${{ !cancelled() }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const out = ["## Playwright Test Summary", ""];
+            if (fs.existsSync("test-results/results.json")) {
+              const data = JSON.parse(fs.readFileSync("test-results/results.json", "utf8"));
+              const stats = data.stats || {};
+              out.push(`- **Expected (Passed):** ${stats.expected ?? 0}`);
+              out.push(`- **Unexpected (Failed):** ${stats.unexpected ?? 0}`);
+              out.push(`- **Flaky:** ${stats.flaky ?? 0}`);
+              out.push(`- **Skipped:** ${stats.skipped ?? 0}`);
+              out.push("");
+              out.push("| Suite / Test | Status |");
+              out.push("| --- | --- |");
+              const walk = (suites, prefix = "") => {
+                for (const s of suites || []) {
+                  const name = prefix ? `${prefix} › ${s.title}` : s.title;
+                  for (const spec of s.specs || []) {
+                    const status = spec.ok ? "✅ Passed" : "❌ Failed";
+                    out.push(`| ${name ? name + " › " : ""}${spec.title} | ${status} |`);
+                  }
+                  walk(s.suites, name);
+                }
+              };
+              walk(data.suites);
+            } else {
+              out.push("No JSON results file found.");
+            }
+            out.push("");
+            out.push("Download the **playwright-report** artifact below for full HTML results and screenshots.");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+          '
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
