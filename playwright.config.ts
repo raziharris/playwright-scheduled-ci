@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
   },
   projects: [
     {
