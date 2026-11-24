@@ -8,6 +8,15 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   playwright:
     timeout-minutes: 15
@@ -61,14 +70,32 @@ jobs:
               out.push("No JSON results file found.");
             }
             out.push("");
-            out.push("Download the **playwright-report** artifact below for full HTML results and screenshots.");
+            out.push("Download the **playwright-report** artifact below for the zipped HTML report, or view it live on GitHub Pages.");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
           '
 
-      - name: Upload Playwright report
+      - name: Upload Playwright report artifact
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+      - name: Upload Playwright report for GitHub Pages
+        if: ${{ !cancelled() }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report/
+
+  deploy-report:
+    needs: playwright
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
